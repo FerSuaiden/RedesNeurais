@@ -1,0 +1,38 @@
+<annotation>
+	<folder>imagens</folder>
+	<filename>1122.jpg</filename>
+	<path>/Volumes/SSD Externo/dataset-moscas-labels-atualizadas/imagens/1122.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>5184</width>
+		<height>3456</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>MR</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>358</xmin>
+			<ymin>2519</ymin>
+			<xmax>497</xmax>
+			<ymax>2625</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>WF</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>4417</xmin>
+			<ymin>2393</ymin>
+			<xmax>4465</xmax>
+			<ymax>2448</ymax>
+		</bndbox>
+	</object>
+</annotation>
