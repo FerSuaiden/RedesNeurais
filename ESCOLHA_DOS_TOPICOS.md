@@ -1,41 +1,28 @@
 # Escolha dos Tópicos da Disciplina
 
-## Tópico principal: Redes Neurais Convolucionais
+## Tema principal: Redes Neurais Convolucionais
 
-Este foi o tópico principal escolhido porque o projeto envolve classificação de imagens. Em imagens,
-os pixels vizinhos possuem relações espaciais importantes, e as CNNs exploram exatamente esse tipo
-de estrutura usando filtros convolucionais. Isso permite aprender bordas, formas e texturas com
-muito menos parâmetros do que uma rede totalmente conectada.
+Redes neurais convolucionais foram escolhidas como eixo principal porque a entrada do problema é
+visual. Em uma imagem, pixels próximos não são independentes: eles compõem bordas, regiões claras,
+contornos, partes compactas e formas alongadas. Esse arranjo local é o que se chama aqui de
+estrutura espacial da imagem. Uma CNN explora essa organização por meio de filtros locais, o que a
+torna mais adequada do que uma rede densa para modelar padrões desse tipo.
 
-Justificativas:
+No conjunto utilizado, essa escolha permaneceu tecnicamente justificável mesmo após a revisão
+metodológica com split por imagem original. A CNN apresentou desempenho muito alto e, além disso,
+teve comportamento operacional melhor do que o MLP para a classe `MR`.
 
-- o enunciado pede explicitamente a exploração de arquiteturas convolucionais;
-- a entrada é visual e contém padrões locais relevantes;
-- CNNs são o padrão mais adequado para tarefas de visão computacional;
-- o modelo convolucional usado no projeto tem menos parâmetros do que o MLP baseline e ainda assim
-  mantém desempenho muito alto.
+## Uso do MLP como baseline
 
-## Tópico secundário: Perceptron / MLP
+O MLP foi mantido como baseline porque ele oferece uma comparação direta com uma arquitetura que
+recebe os mesmos dados, mas sem explorar explicitamente relações locais entre pixels vizinhos. Isso
+permite observar o quanto do desempenho vem de uma modelagem visual mais apropriada e o quanto já
+pode ser obtido com uma rede densa sobre pixels achatados.
 
-O MLP foi incluído como baseline comparativo. A ideia não é adotá-lo como arquitetura principal,
-mas mostrar experimentalmente a diferença entre uma rede densa sobre pixels achatados e uma rede
-que respeita a estrutura espacial da imagem.
+## Observação metodológica importante
 
-Justificativas:
-
-- é um tópico central da disciplina;
-- serve como referência simples e interpretável;
-- fortalece a justificativa da CNN ao permitir comparação quantitativa.
-
-## Tópico considerado, mas não adotado como principal: Transferência de Aprendizado
-
-Transferência de aprendizado seria uma escolha válida, especialmente com arquiteturas como ResNet
-ou MobileNet pré-treinadas em ImageNet. Porém, ela não foi escolhida como solução principal porque
-o problema já apresenta desempenho excelente com modelos menores, mais rápidos e mais fáceis de
-explicar em um trabalho acadêmico de disciplina.
-
-Justificativas:
-
-- custo computacional maior;
-- maior complexidade para explicar e reproduzir;
-- ganho potencial pequeno diante do desempenho já obtido.
+Durante a revisão do experimento, ficou claro que o dataset possui um atalho geométrico forte.
+Largura, altura, área e razão de aspecto dos recortes já explicam grande parte do desempenho. Por
+isso, a avaliação final foi organizada de modo mais rigoroso: o split passou a ser feito por imagem
+original, foi incluído um baseline geométrico como controle e a análise deixou de depender apenas
+de Average Precision.
