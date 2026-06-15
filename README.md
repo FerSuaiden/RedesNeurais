@@ -1,4 +1,4 @@
-# SCC0270 — Classificação de Moscas
+# SCC0270 - Classificação de Moscas
 
 Projeto da disciplina **Redes Neurais e Aprendizado Profundo** (USP/ICMC, 2026-1).
 
@@ -52,8 +52,8 @@ O arquivo `Classificacao_de_Moscas_Entrega.ipynb` cobre **todas as tarefas do en
 | 5 | DataLoaders com amostragem balanceada (`WeightedRandomSampler`) |
 | 6 | Baseline geométrico (Regressão Logística com atributos de bounding box) |
 | 7 | Modelos neurais: MLP (baseline) e CNN (modelo principal) |
-| 8 | Experimento 1 — MLP |
-| 9 | Experimento 2 — CNN |
+| 8 | Experimento 1 - MLP |
+| 9 | Experimento 2 - CNN |
 | 10 | Comparação dos resultados via **Average Precision (PR-AUC)** |
 | 11–13 | Discussão, resultados de referência e conclusão |
 
@@ -80,13 +80,13 @@ jupyter notebook Classificacao_de_Moscas_Entrega.ipynb
 
 ## Entregáveis
 
-1. **Notebook** — `Classificacao_de_Moscas_Entrega.ipynb`
-2. **Relatório** — `docs/RELATORIO_CLASSIFICACAO_DE_MOSCAS.tex` (formato SBC)
-3. **Vídeo** — URL a ser adicionada no arquivo `docs/url_video.txt`
+1. **Notebook** - `Classificacao_de_Moscas_Entrega.ipynb`
+2. **Relatório** - `docs/RELATORIO_CLASSIFICACAO_DE_MOSCAS.tex` (formato SBC)
+3. **Vídeo** - URL a ser adicionada no arquivo `docs/url_video.txt`
 
 ## Dataset
 
-Fonte: [Embrapa](https://www.embrapa.br/) — dataset de insetos em armadilhas adesivas.  
+Fonte: [Embrapa](https://www.embrapa.br/) - dataset de insetos em armadilhas adesivas.  
 Link original do projeto: <https://drive.google.com/drive/folders/1w1H7Cl9RdQH8ex-UYQ9EFLw0ZIATR18E>
 
 ## Referências
