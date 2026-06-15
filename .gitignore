@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Modelos treinados
+*.pth
+*.pt
+*.h5
+
+# Ambientes
+.env
+.venv/
+venv/
+
+# Imagens de saída geradas
+*.png
+*.jpg
+!docs/**/*.png
+!docs/**/*.jpg
+
+# macOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
