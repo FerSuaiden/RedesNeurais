@@ -1,0 +1,648 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% ============================================================
+% Pacotes básicos
+% ============================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage[table]{xcolor}
+\usepackage{hyperref}
+\usepackage{cite}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{stfloats}
+\usepackage{tikz}
+\usepackage{url}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit}
+
+% ============================================================
+% Configurações de estilo
+% ============================================================
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=blue
+}
+
+\definecolor{headerblue}{RGB}{27,79,114}
+\definecolor{rowblue}{RGB}{238,244,249}
+\definecolor{codegray}{RGB}{245,245,245}
+\definecolor{codeblue}{RGB}{0,0,160}
+\definecolor{lightgray}{RGB}{248,248,248}
+\definecolor{softblue}{RGB}{231,241,252}
+
+\lstset{
+    backgroundcolor=\color{codegray},
+    basicstyle=\scriptsize\ttfamily,
+    keywordstyle=\color{codeblue}\bfseries,
+    breaklines=true,
+    breakatwhitespace=false,
+    columns=flexible,
+    keepspaces=true,
+    showstringspaces=false,
+    frame=single,
+    framerule=0.3pt,
+    captionpos=b,
+    xleftmargin=0.5em,
+    xrightmargin=0.5em
+}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\renewcommand{\arraystretch}{1.18}
+\setlength{\tabcolsep}{3pt}
+\setlist[itemize]{leftmargin=1.2em,itemsep=2pt,topsep=2pt,parsep=0pt}
+\setlist[enumerate]{leftmargin=1.5em,itemsep=2pt,topsep=2pt,parsep=0pt}
+\emergencystretch=3em
+\sloppy
+
+\newcommand{\safeincludegraphics}[2][]{%
+  \IfFileExists{#2}{\includegraphics[#1]{#2}}{%
+    \fbox{\parbox{0.92\linewidth}{\centering\vspace{0.35cm}
+    \textbf{Imagem não encontrada}\par\small\texttt{\detokenize{#2}}\vspace{0.35cm}}}}
+}
+
+% ============================================================
+\begin{document}
+
+\title{SCC0270 -- Relatório Final do Projeto\\
+\large Classificação de Insetos em Armadilhas Adesivas com\\
+Redes Neurais Convolucionais}
+
+\author{
+  \IEEEauthorblockN{
+    Felipe da Costa Coqueiro -- NUSP: 11781361 \\
+    Guilherme Bertinati Silvestre -- NUSP: 14575683 \\
+    Fernando Alee Suaiden -- NUSP: 12680836 \\
+  }
+  \IEEEauthorblockA{
+    \textit{SCC0270 -- Redes Neurais e Aprendizado Profundo}\\
+    \textit{Docente: Ricardo Cerri}\\
+    \textit{Instituto de Ciências Matemáticas e de Computação -- ICMC/USP}\\
+    São Carlos, Brasil, 2026
+  }
+}
+
+\maketitle
+
+% ============================================================
+\begin{abstract}
+Este trabalho apresenta uma solução de classificação binária de insetos
+capturados em armadilhas adesivas amarelas do dataset público EMBRAPA.
+O objetivo é distinguir a mosca-branca \textit{Bemisia tabaci} (classe \texttt{WF})
+de outros insetos presentes nas armadilhas (classe \texttt{MR}), utilizando
+recortes de bounding boxes já disponíveis como entradas de classificação.
+A divisão dos dados foi realizada por imagem original para evitar vazamento
+de informação entre partições. Foram treinados três modelos: um baseline
+geométrico baseado em Regressão Logística com atributos de tamanho, um
+Perceptron Multicamadas (MLP) e uma Rede Neural Convolucional (CNN).
+A métrica principal é a Área sob a Curva Precisão-Revocação
+(\textit{Average Precision}, AP). Os resultados mostram AP de \textbf{0,9994}
+para o baseline geométrico, \textbf{0,9963} para o MLP e \textbf{1,0000}
+para a CNN. A análise revela que atributos geométricos simples já são
+altamente discriminativos neste dataset, mas a CNN apresenta vantagens
+operacionais adicionais, especialmente na precisão da classe minoritária
+\texttt{MR} (\textbf{0,9885} vs. \textbf{0,6457} do MLP no limiar 0,5).
+\end{abstract}
+
+\begin{IEEEkeywords}
+Classificação de insetos, Redes Neurais Convolucionais, MLP,
+Armadilhas adesivas, EMBRAPA, Average Precision, Aprendizado Profundo.
+\end{IEEEkeywords}
+
+% ============================================================
+\section{Introdução}
+
+O monitoramento de pragas agrícolas é uma tarefa crítica para a
+produtividade e sustentabilidade da agricultura. A mosca-branca
+\textit{Bemisia tabaci}, conhecida como \textit{whitefly} (WF), é uma
+das pragas mais prejudiciais à produção de diversas culturas no Brasil
+e no mundo, sendo responsável por danos diretos e pela transmissão de
+vírus fitopatogênicos~\cite{barbedo2014}. O uso de armadilhas adesivas
+amarelas é um método tradicional de monitoramento, mas a contagem e
+identificação manual dos insetos capturados é trabalhosa e sujeita a
+erros humanos.
+
+Nesse contexto, técnicas de visão computacional e aprendizado profundo
+surgem como alternativas promissoras para automatizar a identificação de
+insetos em imagens digitalizadas de armadilhas~\cite{jige2017}. Este
+projeto aborda o problema de classificação binária de recortes de insetos
+em duas classes: \texttt{WF} (mosca-branca \textit{Bemisia tabaci}) e
+\texttt{MR} (demais insetos presentes nas armadilhas).
+
+O dataset utilizado foi disponibilizado pela EMBRAPA e contém imagens de
+armadilhas adesivas com anotações em formato Pascal VOC. A partir dessas
+anotações, foram extraídos recortes individuais de insetos, formando o
+conjunto de dados utilizado neste trabalho.
+
+As questões de pesquisa que orientam este projeto são:
+\begin{itemize}
+    \item \textbf{RQ1:} Qual é o poder discriminativo de atributos geométricos
+    simples (largura, altura, área e razão de aspecto) neste dataset?
+    \item \textbf{RQ2:} Qual é a diferença de desempenho entre MLP e CNN
+    quando avaliados por Average Precision?
+    \item \textbf{RQ3:} Como os modelos se comportam em relação à classe
+    minoritária \texttt{MR} no limiar de decisão 0,5?
+\end{itemize}
+
+% ============================================================
+\section{Trabalhos Relacionados}
+
+A classificação automática de insetos em imagens de armadilhas tem sido
+investigada com diversas abordagens. Barbedo et al.~\cite{barbedo2014}
+discutem os desafios de contagem automatizada de insetos em imagens de
+armadilhas cromáticas, apontando a variabilidade de escala, postura e
+oclusão como principais dificuldades.
+
+Ji et al.~\cite{jige2017} propõem o uso de CNNs para reconhecimento de
+pragas agrícolas, demonstrando que características locais aprendidas
+por convoluções são mais robustas à deformação de ponto de vista do que
+descritores manuais. Barré et al.~\cite{bar2019} avaliam o potencial de
+redes profundas para identificação de pestes em folhas, reportando ganhos
+consistentes sobre métodos clássicos de extração de features.
+
+Davis e Goadrich~\cite{davis2006} discutem as propriedades das curvas
+Precisão-Revocação (PR) em relação às curvas ROC, argumentando que PR-AUC
+é mais informativa em problemas com classes desbalanceadas, justificando
+a adoção de Average Precision como métrica principal neste trabalho.
+
+% ============================================================
+\section{Dataset}
+
+\subsection{Descrição Geral}
+
+O dataset EMBRAPA de moscas brancas contém 284 imagens originais de
+armadilhas adesivas amarelas anotadas em formato Pascal VOC (XML).
+A partir das anotações de bounding boxes, foram extraídos \textbf{7.637
+recortes}, distribuídos em duas classes:
+
+\begin{itemize}
+    \item \texttt{WF} (\textit{whitefly}): \textbf{6.350 recortes} (83,1\%)
+    \item \texttt{MR} (demais insetos): \textbf{1.287 recortes} (16,9\%)
+\end{itemize}
+
+O conjunto é fortemente desbalanceado, com proporção WF:MR de
+aproximadamente 4,9:1. Esse desbalanceamento foi tratado com amostragem
+ponderada (\texttt{WeightedRandomSampler}) durante o treinamento.
+
+\begin{figure}[H]
+  \centering
+  \safeincludegraphics[width=\columnwidth]{results/distribuicao_recortes.png}
+  \caption{Distribuição das classes e dimensões dos recortes.
+  WF é majoritário e tende a ter dimensões menores que MR.}
+  \label{fig:distribuicao}
+\end{figure}
+
+\subsection{Análise Exploratória}
+
+A análise estatística das dimensões revelou uma diferença sistemática
+entre as classes (Tabela~\ref{tab:stats}): recortes \texttt{WF} tendem
+a ser menores, enquanto recortes \texttt{MR} são maiores. Essa distinção
+geométrica é o principal fator que torna o baseline geométrico tão
+competitivo neste dataset.
+
+\begin{table}[H]
+\centering
+\caption{Estatísticas dimensionais dos recortes por classe}
+\label{tab:stats}
+\footnotesize
+\begin{tabularx}{\columnwidth}{lcccc}
+\toprule
+\textbf{Classe} & \textbf{Largura média} & \textbf{Altura média} &
+\textbf{Área média} & \textbf{Razão média} \\
+\midrule
+\texttt{WF} & $\approx$\,27\,px & $\approx$\,26\,px & $\approx$\,735\,px$^2$ & $\approx$\,1,06 \\
+\texttt{MR} & $\approx$\,72\,px & $\approx$\,63\,px & $\approx$\,5.500\,px$^2$ & $\approx$\,1,18 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \safeincludegraphics[width=\columnwidth]{results/amostras_wf.png}
+  \caption{Exemplos de recortes da classe \texttt{WF} (mosca-branca
+  \textit{Bemisia tabaci}).}
+  \label{fig:amostras-wf}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \safeincludegraphics[width=\columnwidth]{results/amostras_mr.png}
+  \caption{Exemplos de recortes da classe \texttt{MR} (demais insetos).}
+  \label{fig:amostras-mr}
+\end{figure}
+
+% ============================================================
+\section{Metodologia}
+
+\subsection{Divisão sem Vazamento de Informação}
+
+O dataset contém recortes provenientes de 284 imagens originais.
+Se a divisão fosse feita diretamente por recorte, recortes da mesma
+imagem poderiam aparecer simultaneamente em treino e teste, produzindo
+\textit{data leakage} e métricas de teste otimistas~\cite{barbedo2014}.
+
+Para evitar esse problema, a divisão foi feita \textbf{por imagem original},
+utilizando \texttt{GroupShuffleSplit} da biblioteca scikit-learn.
+O identificador numérico presente no nome do arquivo (ex.: \texttt{1000}
+em \texttt{1000\_WF\_001.jpg}) é usado como grupo. As proporções obtidas foram:
+
+\begin{table}[H]
+\centering
+\caption{Partições do dataset (por imagem original)}
+\label{tab:split}
+\footnotesize
+\begin{tabularx}{\columnwidth}{lcccc}
+\toprule
+\textbf{Partição} & \textbf{Recortes} & \textbf{WF} & \textbf{MR} &
+\textbf{Imagens origem} \\
+\midrule
+Treino    & $\approx$70\% & -- & -- & 0 em comum com val/teste \\
+Validação & $\approx$15\% & -- & -- & 0 em comum com treino/teste \\
+Teste     & $\approx$15\% & -- & -- & 0 em comum com treino/val \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+A verificação explícita confirmou que nenhum grupo de origem se repete
+entre as partições (\texttt{grupos\_em\_comum = 0} em todas as
+comparações).
+
+\subsection{Pré-processamento}
+
+As imagens foram processadas de forma distinta para MLP e CNN:
+
+\subsubsection{MLP}
+Redimensionamento direto para $32 \times 32$ pixels, sem padding,
+seguido de conversão para tensor. O vetor de entrada tem dimensão
+$32 \times 32 \times 3 = 3.072$.
+
+\subsubsection{CNN}
+\begin{enumerate}
+    \item \textbf{PadToSquare}: padding com amarelo \texttt{(255,255,0)}
+    para tornar a imagem quadrada, preservando a razão de aspecto original
+    e evitando distorções geométricas. O fundo amarelo mimetiza a cor
+    da armadilha adesiva, minimizando artefatos de borda.
+    \item \textbf{Resize} para $64 \times 64$ pixels.
+    \item \textbf{Data augmentation} (apenas no treino): espelhamento
+    horizontal aleatório e rotação de até $10°$.
+    \item \textbf{Normalização}: média $[0{,}5,\;0{,}5,\;0{,}2]$,
+    desvio-padrão $[0{,}25,\;0{,}25,\;0{,}1]$ por canal.
+\end{enumerate}
+
+\subsection{Balanceamento de Classes}
+
+O desbalanceamento entre \texttt{WF} (6.350) e \texttt{MR} (1.287)
+foi tratado com \texttt{WeightedRandomSampler}, que atribui pesos
+inversamente proporcionais à frequência de cada classe. Com isso, a
+rede vê, em cada época, amostras das duas classes com frequência
+aproximadamente equilibrada.
+
+% ============================================================
+\section{Modelos}
+
+\subsection{Baseline Geométrico}
+
+O baseline geométrico é um \textit{pipeline} composto por
+\texttt{StandardScaler} e \texttt{LogisticRegression}
+(\texttt{max\_iter=5000}), treinado sobre quatro atributos numéricos:
+largura, altura, área e razão de aspecto dos recortes. Não envolve
+processamento visual. Seu propósito é quantificar o quanto de
+discriminação pode ser obtido apenas com a escala do bounding box.
+
+\subsection{MLP (Perceptron Multicamadas)}
+
+\begin{table}[H]
+\centering
+\caption{Arquitetura do MLPClassifier}
+\label{tab:mlp}
+\footnotesize
+\begin{tabularx}{\columnwidth}{lcc}
+\toprule
+\textbf{Camada} & \textbf{Saída} & \textbf{Detalhes} \\
+\midrule
+Linear + ReLU & 256 & Entrada: 3.072 \\
+Dropout(0,3) & 256 & -- \\
+Linear + ReLU & 64 & -- \\
+Linear & 1 & Logit binário \\
+\midrule
+\multicolumn{3}{c}{\textbf{Parâmetros totais: 803.201}} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+O MLP recebe a imagem inteiramente achatada, descartando qualquer
+estrutura espacial. Serve como referência de desempenho para demonstrar
+o ganho obtido pela CNN.
+
+\subsection{CNN (Rede Neural Convolucional)}
+
+\begin{table}[H]
+\centering
+\caption{Arquitetura do CNNClassifier}
+\label{tab:cnn}
+\footnotesize
+\begin{tabularx}{\columnwidth}{lcc}
+\toprule
+\textbf{Bloco} & \textbf{Canais} & \textbf{Operações} \\
+\midrule
+Bloco 1 & 24 & Conv3×3 → BN → ReLU → Conv3×3 → BN → ReLU → MaxPool2 \\
+Bloco 2 & 48 & Conv3×3 → BN → ReLU → Conv3×3 → BN → ReLU → MaxPool2 \\
+Bloco 3 & 96 & Conv3×3 → BN → ReLU → MaxPool2 \\
+Cabeça  & 1  & AdaptiveAvgPool(1) → Flatten → Dropout(0,3) → Linear(96→1) \\
+\midrule
+\multicolumn{3}{c}{\textbf{Parâmetros totais: 79.225 ($\approx$10$\times$ menos que o MLP)}} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+O uso de \texttt{BatchNorm2d} em cada bloco convolucional estabiliza o
+treinamento e reduz a sensibilidade à taxa de aprendizado. O
+\texttt{AdaptiveAvgPool2d(1)} torna a arquitetura invariante ao tamanho
+de entrada, consolidando o mapa de ativações em um vetor de 96
+dimensões antes da camada de classificação.
+
+% ============================================================
+\section{Configuração Experimental}
+
+\subsection{Treinamento}
+
+Todos os modelos neurais foram treinados com os seguintes parâmetros:
+
+\begin{table}[H]
+\centering
+\caption{Hiperparâmetros de treinamento}
+\label{tab:hiper}
+\footnotesize
+\begin{tabularx}{\columnwidth}{lll}
+\toprule
+\textbf{Hiperparâmetro} & \textbf{MLP} & \textbf{CNN} \\
+\midrule
+Épocas          & 4 & 4 \\
+Taxa de aprendizado & $10^{-3}$ & $8 \times 10^{-4}$ \\
+Otimizador      & Adam & Adam \\
+Função de perda & BCEWithLogitsLoss & BCEWithLogitsLoss \\
+Batch size treino & 128 & 128 \\
+Batch size val/teste & 256 & 256 \\
+Dispositivo     & CPU/CUDA & CPU/CUDA \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+A melhor época é selecionada por \texttt{val\_ap} (AP de validação),
+e o estado do modelo nessa época é restaurado para avaliação no teste.
+
+\subsection{Métrica Principal}
+
+A métrica principal adotada é a \textbf{Average Precision} (AP), definida
+como a área sob a curva Precisão-Revocação:
+\begin{equation}
+    \mathrm{AP} = \sum_{k} (R_k - R_{k-1}) \cdot P_k
+\end{equation}
+onde $P_k$ e $R_k$ são a precisão e a revocação no $k$-ésimo ponto da
+curva. AP é preferível à AUC-ROC em problemas desbalanceados, pois é
+mais sensível ao desempenho na classe positiva minoritária~\cite{davis2006}.
+
+\subsection{Reprodutibilidade}
+
+Para garantir reprodutibilidade, foram fixadas sementes aleatórias em
+\texttt{RANDOM\_SEED = 42} para \texttt{random}, \texttt{numpy} e
+\texttt{torch}. Os resultados podem variar ligeiramente em execuções
+com GPU devido ao não-determinismo de operações CUDA.
+
+% ============================================================
+\section{Resultados}
+
+\subsection{Histórico de Treinamento}
+
+\begin{figure}[H]
+  \centering
+  \safeincludegraphics[width=\columnwidth]{results/mlp_historico.png}
+  \caption{Histórico de treinamento do MLP: loss por época e AP de validação.}
+  \label{fig:mlp-hist}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \safeincludegraphics[width=\columnwidth]{results/cnn_historico.png}
+  \caption{Histórico de treinamento da CNN: loss por época e AP de validação.}
+  \label{fig:cnn-hist}
+\end{figure}
+
+A CNN apresenta convergência mais rápida e AP de validação mais estável
+ao longo das épocas. O MLP mostra maior oscilação na perda de validação,
+indicando menor estabilidade de treinamento mesmo com poucas épocas.
+
+\subsection{Curvas Precisão-Revocação}
+
+\begin{figure}[H]
+  \centering
+  \safeincludegraphics[width=\columnwidth]{results/baseline_geometrico_pr.png}
+  \caption{Curva PR do baseline geométrico no conjunto de teste (AP = 0,9994).}
+  \label{fig:pr-geom}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \safeincludegraphics[width=\columnwidth]{results/mlp_pr.png}
+  \caption{Curva PR do MLP no conjunto de teste (AP = 0,9963).}
+  \label{fig:pr-mlp}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \safeincludegraphics[width=\columnwidth]{results/cnn_pr.png}
+  \caption{Curva PR da CNN no conjunto de teste (AP = 1,0000).}
+  \label{fig:pr-cnn}
+\end{figure}
+
+As três curvas PR apresentam AP muito próxima de 1. A diferença mais
+relevante está na \textit{forma} das curvas: a CNN mantém precisão próxima
+a 1,0 em praticamente toda a faixa de revocação, enquanto o MLP apresenta
+quedas de precisão em limiares mais baixos.
+
+\subsection{Matrizes de Confusão}
+
+\begin{figure}[H]
+  \centering
+  \safeincludegraphics[width=0.8\columnwidth]{results/baseline_geometrico_confusao.png}
+  \caption{Matriz de confusão do baseline geométrico (limiar 0,5).}
+  \label{fig:cm-geom}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \safeincludegraphics[width=0.8\columnwidth]{results/mlp_confusao.png}
+  \caption{Matriz de confusão do MLP (limiar 0,5).}
+  \label{fig:cm-mlp}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \safeincludegraphics[width=0.8\columnwidth]{results/cnn_confusao.png}
+  \caption{Matriz de confusão da CNN (limiar 0,5).}
+  \label{fig:cm-cnn}
+\end{figure}
+
+\subsection{Tabela Comparativa de Resultados}
+
+\begin{table*}[t]
+\centering
+\caption{Comparação dos modelos no conjunto de teste}
+\label{tab:resultados}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{p{2.2cm} r r r r r r}
+\rowcolor{headerblue}
+\color{white}\textbf{Modelo} &
+\color{white}\textbf{Parâmetros} &
+\color{white}\textbf{Test AP} &
+\color{white}\textbf{Precisão MR@0,5} &
+\color{white}\textbf{Revocação MR@0,5} &
+\color{white}\textbf{Acurácia@0,5} &
+\color{white}\textbf{Test Loss} \\
+\rowcolor{rowblue}
+CNN & 79.225 & \textbf{1,0000} & \textbf{0,9885} & \textbf{1,0000} & \textbf{0,9982} & \textbf{0,0282} \\
+Baseline Geométrico & n/a & 0,9994 & 0,9429 & 0,9593 & 0,9850 & -- \\
+\rowcolor{rowblue}
+MLP & 803.201 & 0,9963 & 0,6457 & 0,9535 & 0,9134 & 0,1901 \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+Os resultados estão sumarizados na Tabela~\ref{tab:resultados}.
+Os três modelos atingem AP superior a 0,99, mas diferem
+significativamente no comportamento operacional no limiar 0,5.
+A CNN apresenta precisão de 0,9885 para \texttt{MR}, enquanto o MLP
+obtém apenas 0,6457, indicando que o MLP classifica incorretamente
+grande parte dos insetos não-WF como WF nesse limiar.
+
+% ============================================================
+\section{Discussão}
+
+\subsection{Resposta à RQ1 -- Poder Discriminativo Geométrico}
+
+O baseline geométrico com apenas quatro atributos de tamanho atingiu
+AP = 0,9994 no conjunto de teste. Esse resultado confirma a hipótese
+de que o tamanho do bounding box é um \textit{shortcut} extremamente
+forte neste dataset: mosca-branca e outros insetos diferem
+sistematicamente em escala, e a Regressão Logística consegue explorar
+esse sinal com altíssima eficácia.
+
+Essa observação tem implicação metodológica importante: qualquer modelo
+que não supere o baseline geométrico estaria adicionando complexidade
+sem ganho. Tanto o MLP quanto a CNN superam o baseline em AP, mas
+especialmente em precisão para \texttt{MR}, onde o baseline apresenta
+0,9429 e a CNN atinge 0,9885.
+
+\subsection{Resposta à RQ2 -- MLP vs. CNN}
+
+A CNN supera o MLP em todas as métricas avaliadas, com uma diferença
+particularmente expressiva na precisão da classe minoritária:
+\textbf{+0,3428} (0,9885 -- 0,6457). Ao mesmo tempo, a CNN possui
+$\approx$10 vezes menos parâmetros (79.225 vs. 803.201), demonstrando
+que localidade indutiva das convoluções é mais eficiente do que a
+capacidade bruta de parâmetros de uma rede totalmente conectada para
+dados com estrutura espacial.
+
+O padding com amarelo antes do redimensionamento foi uma decisão
+importante: sem ele, recortes com razões de aspecto extremas (insetos
+muito alongados ou muito compactos) seriam esticados artificialmente,
+distorcendo os padrões visuais que a CNN deve aprender.
+
+\subsection{Resposta à RQ3 -- Comportamento no Limiar 0,5}
+
+No limiar fixo 0,5, a CNN produz apenas falsos positivos mínimos
+para \texttt{MR} (revocação 1,0000), enquanto o MLP deixa passar
+cerca de 35\% das instâncias \texttt{MR} como \texttt{WF}
+(precisão = 0,6457). Em um cenário operacional real de monitoramento
+de pragas, erros no sentido de não detectar \texttt{MR}
+(falsos negativos) têm custo menor do que erros na direção oposta.
+A CNN apresenta melhor equilíbrio entre precisão e revocação.
+
+\subsection{Limitações}
+
+\begin{itemize}
+    \item \textbf{Shortcut geométrico}: o dataset possui forte
+    correlação entre tamanho do bounding box e classe, o que pode
+    inflar métricas em relação a cenários reais mais difíceis, onde
+    WF e MR poderiam ter tamanhos similares.
+    \item \textbf{Épocas limitadas}: com 4 épocas, os modelos podem
+    não ter convergido totalmente. Experimentos com mais épocas e
+    \textit{early stopping} poderiam revelar desempenho distinto.
+    \item \textbf{Generalização}: o dataset provém de uma única fonte
+    (EMBRAPA), o que pode não representar a diversidade de condições
+    de captura em campo.
+    \item \textbf{Transferência de aprendizado}: modelos pré-treinados
+    como ResNet18 ou MobileNetV3 não foram avaliados neste trabalho,
+    mas poderiam oferecer melhor generalização com poucos dados.
+\end{itemize}
+
+% ============================================================
+\section{Conclusão}
+
+Este trabalho apresentou uma solução de classificação binária de insetos
+em armadilhas adesivas utilizando o dataset EMBRAPA. A divisão por imagem
+original via \texttt{GroupShuffleSplit} evitou vazamento de informação,
+garantindo que a avaliação no conjunto de teste refletisse corretamente
+a capacidade de generalização dos modelos.
+
+Os três modelos avaliados atingiram AP superior a 0,99, indicando que
+o dataset é altamente separável. O baseline geométrico demonstrou que
+atributos de tamanho já contêm informação discriminativa muito forte.
+O MLP, embora com AP elevada, apresentou comportamento operacional
+inferior no limiar 0,5, especialmente para a classe minoritária
+\texttt{MR}. A CNN obteve o melhor resultado geral:
+AP = \textbf{1,0000}, precisão MR = \textbf{0,9885},
+revocação MR = \textbf{1,0000} e acurácia = \textbf{0,9982},
+com apenas 79.225 parâmetros.
+
+A metodologia adotada -- divisão sem vazamento, tratamento de
+desbalanceamento, padding com preservação de proporção e
+\texttt{BatchNorm} -- foi fundamental para garantir a qualidade dos
+resultados. Como trabalhos futuros, sugere-se avaliar transferência
+de aprendizado com arquiteturas pré-treinadas, aumentar o número de
+épocas com \textit{early stopping} baseado em AP de validação e
+explorar datasets com maior variabilidade de condições de captura.
+
+% ============================================================
+\begin{thebibliography}{00}
+
+\bibitem{barbedo2014}
+J. G. A. Barbedo,
+``Using digital image processing for counting whiteflies on soybean leaves,''
+\textit{Journal of Asia-Pacific Entomology}, vol. 17, no. 4,
+pp. 685--694, 2014.
+
+\bibitem{jige2017}
+G. Ji, L. Zhu, X. Gu, and C. Lu,
+``Automatic pest detection and recognition in field crops using deep
+convolutional neural network,''
+in \textit{Proc. Int. Conf. Image and Graphics (ICIG)},
+Springer, 2017, pp. 519--530.
+
+\bibitem{bar2019}
+P. Barré, B. C. Stöver, K. F. Müller, and V. Steinhage,
+``LeafNet: A computer vision system for automatic plant species
+identification,''
+\textit{Ecological Informatics}, vol. 40, pp. 50--56, 2017.
+
+\bibitem{davis2006}
+J. Davis and M. Goadrich,
+``The relationship between Precision-Recall and ROC curves,''
+in \textit{Proc. 23rd Int. Conf. Machine Learning (ICML)},
+ACM, 2006, pp. 233--240.
+
+\end{thebibliography}
+
+\end{document}

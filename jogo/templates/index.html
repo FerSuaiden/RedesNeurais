@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🪰 Jogo das Moscas!</title>
+<style>
+  /* ── Fontes & reset ────────────────────────────────── */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'Arial Rounded MT Bold', Arial, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* ── Estrelinhas de fundo ──────────────────────────── */
+  .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .star {
+    position: absolute;
+    width: 3px; height: 3px;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle 2s infinite alternate;
+  }
+
+  @keyframes twinkle {
+    from { opacity: 0.2; transform: scale(1); }
+    to   { opacity: 1;   transform: scale(1.5); }
+  }
+
+  /* ── Card principal ────────────────────────────────── */
+  .card {
+    position: relative; z-index: 1;
+    background: rgba(255,255,255,0.97);
+    border-radius: 32px;
+    padding: 32px 28px 28px;
+    width: min(98vw, 740px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    text-align: center;
+  }
+
+  /* ── Telas ─────────────────────────────────────────── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── TELA DE BOAS-VINDAS ───────────────────────────── */
+  #tela-inicio h1 {
+    font-size: 3rem;
+    margin-bottom: 6px;
+    animation: bounce 1s infinite alternate;
+  }
+  #tela-inicio h2 {
+    font-size: 1.6rem;
+    color: #333;
+    margin-bottom: 18px;
+  }
+  .intro-text {
+    font-size: 1.05rem;
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 24px;
+    background: #f0f8ff;
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .fly-cards {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-bottom: 28px;
+  }
+  .fly-card {
+    flex: 1;
+    border-radius: 18px;
+    padding: 16px 10px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  .fly-card.wf { background: #e3f2fd; border: 3px solid #42a5f5; color: #0d47a1; }
+  .fly-card.mr { background: #fff3e0; border: 3px solid #ff9800; color: #bf360c; }
+  .fly-card .emoji { font-size: 2rem; display: block; margin-bottom: 6px; }
+
+  /* ── TELA DE JOGO ──────────────────────────────────── */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .score-box {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-radius: 14px;
+    padding: 8px 18px;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .round-box {
+    background: #f5f5f5;
+    color: #555;
+    border-radius: 14px;
+    padding: 8px 18px;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .pergunta {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #222;
+    margin-bottom: 16px;
+  }
+
+  /* ── Grade de 5 fotos ──────────────────────────────── */
+  .foto-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .foto-cell {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #ddd;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .foto-cell:hover { transform: scale(1.06); box-shadow: 0 8px 22px rgba(0,0,0,0.28); }
+  .foto-cell img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .cell-loading {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem;
+    background: #e8e8e8;
+    animation: spin 1s linear infinite;
+  }
+  .cell-overlay {
+    position: absolute; inset: 0;
+    display: none; align-items: center; justify-content: center;
+    font-size: 2.8rem;
+    backdrop-filter: blur(1px);
+    animation: pop 0.3s ease;
+  }
+  .cell-overlay.show { display: flex; }
+  .cell-overlay.acerto { background: rgba(102,187,106,0.55); }
+  .cell-overlay.erro   { background: rgba(239,83,80,0.55); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Toggle de dificuldade ─────────────────────────── */
+  .modo-toggle {
+    display: flex; gap: 8px;
+    margin-bottom: 20px;
+    background: #f0f0f0;
+    border-radius: 14px;
+    padding: 4px;
+  }
+  .modo-btn {
+    flex: 1; padding: 11px 8px;
+    border: none; border-radius: 12px;
+    font-size: 1rem; font-weight: 800;
+    cursor: pointer; background: transparent;
+    color: #888; transition: all 0.2s;
+  }
+  .modo-btn.ativo { background: white; color: #222; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .modo-btn.ativo.dificil { background: linear-gradient(135deg,#ff3d00,#ff9800); color: white; }
+  .modo-badge {
+    display: inline-block; font-size: 0.78rem; font-weight: 800;
+    padding: 3px 10px; border-radius: 20px; margin-left: 8px; vertical-align: middle;
+    background: linear-gradient(135deg,#ff3d00,#ff9800); color: white;
+  }
+
+  .botoes {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+  .btn-opcao {
+    flex: 1;
+    padding: 18px 10px;
+    border: none;
+    border-radius: 20px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    line-height: 1.3;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+  }
+  .btn-opcao:hover:not(:disabled) {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.2);
+  }
+  .btn-opcao:active:not(:disabled) { transform: translateY(0); }
+  .btn-opcao:disabled { opacity: 0.5; cursor: default; }
+  .btn-wf { background: linear-gradient(135deg, #42a5f5, #1565c0); color: white; }
+  .btn-mr { background: linear-gradient(135deg, #ff9800, #e64a19); color: white; }
+
+  /* ── Feedback ──────────────────────────────────────── */
+  .feedback {
+    min-height: 80px;
+    border-radius: 18px;
+    padding: 14px 16px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.5;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    margin-bottom: 12px;
+  }
+  .feedback.show { display: flex; }
+  .feedback.acerto { background: #e8f5e9; border: 3px solid #66bb6a; color: #1b5e20; }
+  .feedback.erro { background: #ffebee; border: 3px solid #ef5350; color: #b71c1c; }
+  .feedback-icon { font-size: 2rem; flex-shrink: 0; }
+  .feedback-texto b { display: block; font-size: 1.15rem; margin-bottom: 4px; }
+
+  .btn-proximo {
+    display: none;
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #43e97b, #38f9d7);
+    color: #1a1a1a;
+    font-size: 1.2rem;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(67,233,123,0.4);
+    transition: transform 0.1s;
+  }
+  .btn-proximo:hover { transform: translateY(-3px); }
+  .btn-proximo.show { display: block; }
+
+  /* ── TELA DE RESULTADO ─────────────────────────────── */
+  #tela-fim h2 { font-size: 2rem; margin-bottom: 8px; }
+  .placar-final {
+    font-size: 5rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 10px 0;
+    animation: bounce 0.8s infinite alternate;
+  }
+  .placar-label { font-size: 1.1rem; color: #555; margin-bottom: 20px; }
+  .mensagem-fim {
+    font-size: 1.6rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .texto-fim {
+    font-size: 1rem;
+    color: #555;
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+  .barras-resultado {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+    justify-content: center;
+  }
+  .barra-item {
+    background: #f5f5f5;
+    border-radius: 14px;
+    padding: 12px 20px;
+    text-align: center;
+    flex: 1;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+  .barra-item span { display: block; font-size: 1.8rem; font-weight: 900; }
+  .barra-item.verde span { color: #43a047; }
+  .barra-item.vermelho span { color: #e53935; }
+
+  /* ── Botões genéricos ──────────────────────────────── */
+  .btn-primario {
+    width: 100%;
+    padding: 18px;
+    border: none;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    font-size: 1.25rem;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(102,126,234,0.4);
+    transition: transform 0.1s, box-shadow 0.1s;
+    margin-bottom: 10px;
+  }
+  .btn-primario:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(102,126,234,0.5); }
+  .btn-primario:active { transform: translateY(0); }
+
+  /* ── Animações ─────────────────────────────────────── */
+  @keyframes bounce {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-8px); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%       { transform: translateX(-8px); }
+    40%       { transform: translateX(8px); }
+    60%       { transform: translateX(-6px); }
+    80%       { transform: translateX(6px); }
+  }
+  @keyframes pop {
+    0%   { transform: scale(0.8); opacity: 0; }
+    60%  { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .anim-bounce { animation: bounce 0.5s ease 3; }
+  .anim-shake  { animation: shake 0.5s ease; }
+  .anim-pop    { animation: pop 0.4s ease; }
+
+  /* ── Confetes ──────────────────────────────────────── */
+  .confete {
+    position: fixed;
+    width: 10px; height: 10px;
+    border-radius: 3px;
+    pointer-events: none;
+    z-index: 999;
+    animation: cair 1.2s ease-in forwards;
+  }
+  @keyframes cair {
+    from { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    to   { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* ── Barra de progresso ────────────────────────────── */
+  .progress-bar-wrap {
+    background: #e0e0e0;
+    border-radius: 10px;
+    height: 10px;
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    transition: width 0.4s ease;
+  }
+</style>
+</head>
+<body>
+
+<!-- Estrelinhas de fundo -->
+<div class="stars" id="stars"></div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  CARD PRINCIPAL                                    -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card">
+
+  <!-- ── TELA INICIAL ──────────────────────────────── -->
+  <div class="screen active" id="tela-inicio">
+    <h1>🪰</h1>
+    <h2>Jogo das Moscas!</h2>
+    <p class="intro-text">
+      Veja <strong>5 fotos</strong> de uma mosca e tente adivinhar qual é o tipo dela!
+      São <strong>10 rodadas</strong> — você consegue acertar todas? 🏆
+    </p>
+    <div class="modo-toggle">
+      <button id="btn-modo-normal" class="modo-btn ativo" onclick="setModo('normal')">&#128522; Normal</button>
+      <button id="btn-modo-hard" class="modo-btn dificil" onclick="setModo('hard')">&#128293; Difícil</button>
+    </div>
+    <div class="fly-cards">
+      <div class="fly-card wf">
+        <span class="emoji">🤍</span>
+        <strong>Mosca-branca</strong><br>
+        <small>Pequenininha e branquinha</small>
+      </div>
+      <div class="fly-card mr">
+        <span class="emoji">🍊</span>
+        <strong>Mosca do<br>Mediterrâneo</strong><br>
+        <small>Adora frutas!</small>
+      </div>
+    </div>
+    <button class="btn-primario" onclick="iniciarJogo()">
+      ▶️ Começar o Jogo!
+    </button>
+  </div>
+
+  <!-- ── TELA DE JOGO ───────────────────────────────── -->
+  <div class="screen" id="tela-jogo">
+    <div class="topbar">
+      <div class="score-box">⭐ <span id="placar">0</span> pts</div>
+      <div class="round-box">Rodada <span id="rodada-atual">1</span>/10</div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+    </div>
+
+    <div class="pergunta">Que mosca é essa? 🔍 <span id="modo-badge" style="display:none" class="modo-badge">🔥 Difícil</span></div>
+
+    <div class="foto-grid" id="foto-grid"></div>
+
+    <div class="botoes">
+      <button class="btn-opcao btn-wf" id="btn-wf" onclick="responder('WF')">
+        🤍<br>Mosca-branca
+      </button>
+      <button class="btn-opcao btn-mr" id="btn-mr" onclick="responder('MR')">
+        🍊<br>Mosca do<br>Mediterrâneo
+      </button>
+    </div>
+
+    <div class="feedback" id="feedback">
+      <div class="feedback-icon" id="feedback-icon"></div>
+      <div class="feedback-texto" id="feedback-texto"></div>
+    </div>
+
+    <button class="btn-proximo" id="btn-proximo" onclick="proximaRodada()">
+      Próxima ➡️
+    </button>
+  </div>
+
+  <!-- ── TELA DE FIM ────────────────────────────────── -->
+  <div class="screen" id="tela-fim">
+    <div id="emoji-fim" style="font-size:3.5rem">🏆</div>
+    <h2 id="titulo-fim">Parabéns!</h2>
+    <div class="placar-final" id="placar-final">0/10</div>
+    <div class="placar-label">acertos</div>
+    <div class="mensagem-fim" id="msg-fim"></div>
+    <p class="texto-fim" id="texto-fim"></p>
+    <div class="barras-resultado">
+      <div class="barra-item verde">
+        <span id="total-acertos">0</span>
+        ✅ Acertos
+      </div>
+      <div class="barra-item vermelho">
+        <span id="total-erros">0</span>
+        ❌ Erros
+      </div>
+    </div>
+    <button class="btn-primario" onclick="reiniciarJogo()">
+      🔄 Jogar de Novo!
+    </button>
+    <button class="btn-primario" style="background:linear-gradient(135deg,#f093fb,#f5576c);margin-top:0"
+            onclick="verInicio()">
+      🏠 Início
+    </button>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  JAVASCRIPT                                        -->
+<!-- ══════════════════════════════════════════════════ -->
+<script>
+// ── Dados ─────────────────────────────────────────────
+const TOTAL_RODADAS = 10;
+
+const FATOS = {
+  WF: [
+    "Meu nome é Mosca-branca! Sou da espécie <em>Bemisia tabaci</em>. 🔬",
+    "Sou tão pequenininha que mal dá pra ver! Mas apareço em enxames! ❄️",
+    "Fico escondida embaixo das folhas das plantas! 🌿",
+    "Quando voamos juntas parecemos uma nevinha branca! ☁️",
+    "Gosto de plantações de tomate, pepino e pimentão! 🍅🥒",
+    "Minhas asas branquinhas me deram esse nome bonito! 🤍",
+  ],
+  MR: [
+    "Sou a Mosca do Mediterrâneo, também chamada de mosca-das-frutas! 🪰",
+    "Meu nome científico é <em>Ceratitis capitata</em>. Chique, né? 🔬",
+    "Adoro frutas! Laranja, pêssego e maçã são minhas favoritas! 🍊🍑🍎",
+    "Tenho listrinhas e manchas coloridas nas asas! 🎨",
+    "Vim do continente africano e viajei o mundo todo! 🌍",
+    "Sou maior que a Mosca-branca — dá pra me ver de longe! 👀",
+  ],
+};
+
+const MENSAGENS_ACERTO = [
+  "Incrível! Você é um cientista! 🔬",
+  "Arrasou! Continua assim! 🌟",
+  "Acertou em cheio! 🎯",
+  "Que olho bom! 👁️‍🗨️",
+  "Perfeito! Você conhece moscas! 🪰",
+];
+
+const MENSAGENS_ERRO = [
+  "Quase! Da próxima você acerta! 💪",
+  "Não foi dessa vez! Mas não desista! 🤗",
+  "É difícil mesmo! Continue tentando! 🌈",
+  "Erro faz parte do aprendizado! 📚",
+];
+
+// ── Estado do jogo ─────────────────────────────────────
+let rodadaAtual = 0;
+let placar = 0;
+let erros = 0;
+let classeAtual = null;
+let aguardando = false;
+let modoAtual = 'normal';
+
+function setModo(m) {
+  modoAtual = m;
+  document.getElementById('btn-modo-normal').className = 'modo-btn' + (m === 'normal' ? ' ativo' : '');
+  document.getElementById('btn-modo-hard').className   = 'modo-btn dificil' + (m === 'hard'   ? ' ativo' : '');
+}
+
+// ── Áudio sintético ────────────────────────────────────
+function tocarSom(tipo) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+
+    if (tipo === "acerto") {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(523, ctx.currentTime);       // C5
+      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1); // E5
+      osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2); // G5
+    } else if (tipo === "erro") {
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(200, ctx.currentTime);
+      osc.frequency.setValueAtTime(150, ctx.currentTime + 0.15);
+    } else if (tipo === "fim") {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(784, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+      osc.frequency.setValueAtTime(988, ctx.currentTime + 0.24);
+      osc.frequency.setValueAtTime(1047, ctx.currentTime + 0.36);
+    }
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+  } catch (_) {}
+}
+
+// ── Confetes ───────────────────────────────────────────
+function confetes() {
+  const cores = ["#ff595e","#ffca3a","#6a4c93","#1982c4","#8ac926","#ff6b6b","#ffd166"];
+  for (let i = 0; i < 60; i++) {
+    setTimeout(() => {
+      const c = document.createElement("div");
+      c.className = "confete";
+      c.style.cssText = `
+        left:${Math.random()*100}vw;
+        top:-10px;
+        background:${cores[Math.floor(Math.random()*cores.length)]};
+        transform:rotate(${Math.random()*360}deg);
+        animation-delay:${Math.random()*0.5}s;
+        animation-duration:${1 + Math.random()}s;
+      `;
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 2000);
+    }, i * 20);
+  }
+}
+
+// ── Estrelas de fundo ──────────────────────────────────
+function criarEstrelas() {
+  const container = document.getElementById("stars");
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement("div");
+    s.className = "star";
+    s.style.cssText = `
+      left:${Math.random()*100}%;
+      top:${Math.random()*100}%;
+      animation-delay:${Math.random()*3}s;
+      animation-duration:${1.5 + Math.random()*2}s;
+    `;
+    container.appendChild(s);
+  }
+}
+
+// ── Navegação de telas ─────────────────────────────────
+function mostrarTela(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+// ── Iniciar jogo ───────────────────────────────────────
+function iniciarJogo() {
+  rodadaAtual = 0;
+  placar = 0;
+  erros = 0;
+  aguardando = false;
+  mostrarTela("tela-jogo");
+  carregarRodada();
+}
+
+function reiniciarJogo() {
+  iniciarJogo();
+}
+
+function verInicio() {
+  mostrarTela("tela-inicio");
+}
+
+// ── Carregar rodada ────────────────────────────────────
+async function carregarRodada() {
+  rodadaAtual++;
+  aguardando = false;
+
+  document.getElementById("rodada-atual").textContent = rodadaAtual;
+  document.getElementById("placar").textContent = placar;
+  document.getElementById("progress-bar").style.width =
+    ((rodadaAtual - 1) / TOTAL_RODADAS * 100) + "%";
+
+  // Reset UI
+  document.getElementById("feedback").className = "feedback";
+  document.getElementById("btn-proximo").className = "btn-proximo";
+  document.getElementById("btn-wf").disabled = false;
+  document.getElementById("btn-mr").disabled = false;
+
+  // Mostrar badge de dificuldade
+  const badge = document.getElementById('modo-badge');
+  badge.style.display = modoAtual === 'hard' ? 'inline-block' : 'none';
+
+  // Montar grade com 5 células em loading
+  const grid = document.getElementById('foto-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'foto-cell';
+    cell.id = 'cell-' + i;
+    cell.innerHTML = '<div class="cell-loading">🔄</div><img style="display:none"><div class="cell-overlay"></div>';
+    grid.appendChild(cell);
+  }
+
+  try {
+    const resp = await fetch(`/api/round?modo=${modoAtual}`);
+    const dados = await resp.json();
+    classeAtual = dados.classe;
+    dados.urls.forEach((url, i) => {
+      const cell = document.getElementById('cell-' + i);
+      const img  = cell.querySelector('img');
+      img.onload = () => {
+        cell.querySelector('.cell-loading').style.display = 'none';
+        img.style.display = 'block';
+        img.classList.add('anim-pop');
+        setTimeout(() => img.classList.remove('anim-pop'), 500);
+      };
+      img.onerror = () => {
+        const l = cell.querySelector('.cell-loading');
+        l.textContent = '⚠️'; l.style.animation = 'none';
+      };
+      img.src = url;
+    });
+  } catch (e) {
+    document.querySelectorAll('.cell-loading').forEach(l => { l.textContent = '⚠️'; l.style.animation = 'none'; });
+  }
+}
+
+function imagemCarregada() {} // tratado por onload em carregarRodada
+function erroImagem() {}       // tratado por onerror em carregarRodada
+
+// ── Responder ──────────────────────────────────────────
+function responder(escolha) {
+  if (aguardando) return;
+  aguardando = true;
+
+  document.getElementById("btn-wf").disabled = true;
+  document.getElementById("btn-mr").disabled = true;
+
+  const acertou = (escolha === classeAtual);
+  const feedback = document.getElementById("feedback");
+  const icon = document.getElementById("feedback-icon");
+  const texto = document.getElementById("feedback-texto");
+
+  const fatoAleatorio = FATOS[classeAtual][
+    Math.floor(Math.random() * FATOS[classeAtual].length)
+  ];
+
+  // Overlay em todas as células
+  const tipoOv = acertou ? 'acerto' : 'erro';
+  const iconeOv = acertou ? '✅' : '❌';
+  document.querySelectorAll('.foto-cell').forEach(cell => {
+    const ov = cell.querySelector('.cell-overlay');
+    ov.textContent = iconeOv;
+    ov.className = `cell-overlay show ${tipoOv}`;
+  });
+
+  if (acertou) {
+    placar++;
+    document.getElementById("placar").textContent = placar;
+    const msg = MENSAGENS_ACERTO[Math.floor(Math.random() * MENSAGENS_ACERTO.length)];
+    icon.textContent = "🎉";
+    texto.innerHTML = `<b>${msg}</b>💡 Curiosidade: ${fatoAleatorio}`;
+    feedback.className = "feedback show acerto anim-pop";
+    tocarSom("acerto");
+    confetes();
+  } else {
+    erros++;
+    const nomeCorreto = classeAtual === "WF" ? "Mosca-branca 🤍" : "Mosca do Mediterrâneo 🍊";
+    const msg = MENSAGENS_ERRO[Math.floor(Math.random() * MENSAGENS_ERRO.length)];
+    icon.textContent = "😢";
+    texto.innerHTML = `<b>${msg}</b>Era a ${nomeCorreto}!<br>💡 Curiosidade: ${fatoAleatorio}`;
+    feedback.className = "feedback show erro anim-shake";
+    tocarSom("erro");
+  }
+
+  document.getElementById("btn-proximo").className =
+    rodadaAtual < TOTAL_RODADAS ? "btn-proximo show" : "btn-proximo show";
+  document.getElementById("btn-proximo").textContent =
+    rodadaAtual < TOTAL_RODADAS ? "Próxima ➡️" : "Ver Resultado 🏆";
+}
+
+// ── Próxima rodada ─────────────────────────────────────
+function proximaRodada() {
+  if (rodadaAtual >= TOTAL_RODADAS) {
+    mostrarResultado();
+  } else {
+    carregarRodada();
+  }
+}
+
+// ── Resultado final ────────────────────────────────────
+function mostrarResultado() {
+  document.getElementById("total-acertos").textContent = placar;
+  document.getElementById("total-erros").textContent = erros;
+  document.getElementById("placar-final").textContent = `${placar}/${TOTAL_RODADAS}`;
+
+  let emoji, titulo, msg, texto;
+
+  if (placar === TOTAL_RODADAS) {
+    emoji = "🏆🌟🎉";
+    titulo = "PERFEITO!";
+    msg = "Você acertou TODAS! Incrível!";
+    texto = "Você é um entomologista mirim! Conhece moscas melhor do que muitos adultos! 🔬🪰";
+    tocarSom("fim");
+    confetes();
+  } else if (placar >= 8) {
+    emoji = "🌟🎊";
+    titulo = "Mandou muito bem!";
+    msg = "Quase perfeito! Você arrasou!";
+    texto = "Você tem muito talento para identificar insetos! Continue estudando! 📚";
+    tocarSom("fim");
+    confetes();
+  } else if (placar >= 6) {
+    emoji = "😊👍";
+    titulo = "Muito bom!";
+    msg = "Passou da metade! Bom trabalho!";
+    texto = "Você já conhece bem essas moscas. Jogue de novo para melhorar! 💪";
+  } else if (placar >= 4) {
+    emoji = "🤔💪";
+    titulo = "Continue tentando!";
+    msg = "Está no caminho certo!";
+    texto = "Praticar mais vai te ajudar a reconhecer as diferenças entre as moscas. 🪰";
+  } else {
+    emoji = "😅🌈";
+    titulo = "Não desista!";
+    msg = "Ainda é difícil, mas você vai melhorar!";
+    texto = "Lembre: a Mosca-branca é pequenininha e branquinha, a do Mediterrâneo é maior e colorida! 🎨";
+  }
+
+  document.getElementById("emoji-fim").textContent = emoji;
+  document.getElementById("titulo-fim").textContent = titulo;
+  document.getElementById("msg-fim").textContent = msg;
+  document.getElementById("texto-fim").textContent = texto;
+
+  // Atualiza barra de progresso para 100%
+  document.getElementById("progress-bar").style.width = "100%";
+
+  mostrarTela("tela-fim");
+}
+
+// ── Inicialização ──────────────────────────────────────
+criarEstrelas();
+</script>
+</body>
+</html>
